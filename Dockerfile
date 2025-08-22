@@ -4,6 +4,7 @@ WORKDIR /app
 COPY requirements.txt ./
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential libffi-dev libssl-dev rustc cargo \
     && rm -rf /var/lib/apt/lists/*
@@ -11,11 +12,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 =======
 =======
 >>>>>>> theirs
+=======
+>>>>>>> theirs
 # System build dependencies for wheels like coincurve and pynacl
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential libffi-dev libssl-dev rustc cargo \
     && rm -rf /var/lib/apt/lists/*
 <<<<<<< ours
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs

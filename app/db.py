@@ -20,8 +20,13 @@ def get_db():
         return _db
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
     except Exception as e:
         logging.error("Error connecting to MongoDB: %s", e)
+=======
+    except Exception as exc:
+        logging.error("Mongo connection failed: %s", exc)
+>>>>>>> theirs
 =======
     except Exception as exc:
         logging.error("Mongo connection failed: %s", exc)
