@@ -36,6 +36,8 @@ def _ctx_from_xpub(xpub: str):
         return Bip49.FromExtendedKey(xpub, Bip44Coins.BITCOIN).Change(Bip44Changes.CHAIN_EXT)
     if xpub.startswith("zpub"):
         return Bip84.FromExtendedKey(xpub, Bip44Coins.BITCOIN).Change(Bip44Changes.CHAIN_EXT)
+    if xpub.startswith("upub"):
+        return Bip49.FromExtendedKey(xpub, Bip44Coins.BITCOIN_TESTNET).Change(Bip44Changes.CHAIN_EXT)
     if xpub.startswith("tpub"):
         return Bip44.FromExtendedKey(xpub, Bip44Coins.BITCOIN_TESTNET).Change(Bip44Changes.CHAIN_EXT)
     # Default to BIP44 xpub

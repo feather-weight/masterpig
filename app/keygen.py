@@ -22,13 +22,13 @@ from bip_utils import Bip32KeyNetVersions, Bip32Slip10Secp256k1
 # ---------------------------------------------------------------------------
 # Network versions for different extended key prefixes
 _KEY_VERSIONS: Dict[str, Bip32KeyNetVersions] = {
-    # mainnet
-    "x": Bip32KeyNetVersions(b"\x04\x88\xAD\xE4", b"\x04\x88\xB2\x1E"),
-    "y": Bip32KeyNetVersions(b"\x04\x9D\x78\x78", b"\x04\x9D\x7C\xB2"),
-    "z": Bip32KeyNetVersions(b"\x04\xB2\x43\x0C", b"\x04\xB2\x47\x46"),
-    # testnet
-    "t": Bip32KeyNetVersions(b"\x04\x35\x83\x94", b"\x04\x35\x87\xCF"),
-    "u": Bip32KeyNetVersions(b"\x04\x4A\x4E\x28", b"\x04\x4A\x52\x62"),
+    # mainnet (pub, priv)
+    "x": Bip32KeyNetVersions(b"\x04\x88\xB2\x1E", b"\x04\x88\xAD\xE4"),
+    "y": Bip32KeyNetVersions(b"\x04\x9D\x7C\xB2", b"\x04\x9D\x78\x78"),
+    "z": Bip32KeyNetVersions(b"\x04\xB2\x47\x46", b"\x04\xB2\x43\x0C"),
+    # testnet (pub, priv)
+    "t": Bip32KeyNetVersions(b"\x04\x35\x87\xCF", b"\x04\x35\x83\x94"),
+    "u": Bip32KeyNetVersions(b"\x04\x4A\x52\x62", b"\x04\x4A\x4E\x28"),
 }
 
 # ---------------------------------------------------------------------------
