@@ -11,27 +11,8 @@ from __future__ import annotations
 
 import asyncio
 import time
-<<<<<<< ours
-<<<<<<< ours
-<<<<<<< ours
-<<<<<<< ours
 from collections import deque
 from typing import Deque, Dict, Iterable, List, Set, Tuple
-=======
-from typing import Dict, Iterable, List, Set, Tuple
->>>>>>> theirs
-=======
-from typing import Deque, Dict, Iterable, List, Set, Tuple
-from collections import deque
->>>>>>> theirs
-=======
-from typing import Deque, Dict, Iterable, List, Set, Tuple
-from collections import deque
->>>>>>> theirs
-=======
-from typing import Deque, Dict, Iterable, List, Set, Tuple
-from collections import deque
->>>>>>> theirs
 
 import aiohttp
 from bip_utils import (
@@ -79,23 +60,7 @@ class Scanner:
         self._seen: Set[str] = set()
         self._queue: asyncio.Queue[Tuple[str, int]] = asyncio.Queue()
         self._batch: List[Dict] = []
-<<<<<<< ours
-<<<<<<< ours
-<<<<<<< ours
-<<<<<<< ours
         self._address_times: Deque[int] = deque(maxlen=10_000)
-=======
-        self._address_times: List[int] = []
->>>>>>> theirs
-=======
-        self._address_times: Deque[int] = deque(maxlen=10_000)
->>>>>>> theirs
-=======
-        self._address_times: Deque[int] = deque(maxlen=10_000)
->>>>>>> theirs
-=======
-        self._address_times: Deque[int] = deque(maxlen=10_000)
->>>>>>> theirs
 
         self.db = get_db()
 
@@ -125,24 +90,7 @@ class Scanner:
             return 0
 
         self.stats["addresses_scanned"] += 1
-<<<<<<< ours
-<<<<<<< ours
-<<<<<<< ours
-<<<<<<< ours
-        now = int(time.time())
-        self._address_times.append(now)
-=======
         self._address_times.append(int(time.time()))
->>>>>>> theirs
-=======
-        self._address_times.append(int(time.time()))
->>>>>>> theirs
-=======
-        self._address_times.append(int(time.time()))
->>>>>>> theirs
-=======
-        self._address_times.append(int(time.time()))
->>>>>>> theirs
 
         tx_count = len(txs)
         if tx_count > 0:
@@ -229,23 +177,7 @@ class Scanner:
     # Expose address timestamps for stats when no DB is configured
     @property
     def address_times(self) -> List[int]:
-<<<<<<< ours
-<<<<<<< ours
-<<<<<<< ours
-<<<<<<< ours
         return list(self._address_times)
-=======
-        return self._address_times
->>>>>>> theirs
-=======
-        return list(self._address_times)
->>>>>>> theirs
-=======
-        return list(self._address_times)
->>>>>>> theirs
-=======
-        return list(self._address_times)
->>>>>>> theirs
 
 
 __all__ = ["Scanner", "THRESHOLDS"]
