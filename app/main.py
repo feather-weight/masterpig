@@ -67,7 +67,11 @@ async def gather_key_info(hex_key: str, chain: str) -> Dict[str, Any]:
                 addr = ctx.AddressIndex(0).PublicAddress()
                 try:
                     txs = await fetch_transactions(session, addr)
+<<<<<<< ours
                 except ProviderError:
+=======
+                except (ProviderError, Exception):
+>>>>>>> theirs
                     txs = []
                 electrum["p2pkh"] = {
                     "address": addr,
@@ -91,7 +95,11 @@ async def gather_key_info(hex_key: str, chain: str) -> Dict[str, Any]:
                 addr = ctx.AddressIndex(0).PublicAddress()
                 try:
                     txs2 = await fetch_transactions(session, addr)
+<<<<<<< ours
                 except ProviderError:
+=======
+                except (ProviderError, Exception):
+>>>>>>> theirs
                     txs2 = []
                 electrum["p2wpkh"] = {
                     "address": addr,
@@ -120,7 +128,11 @@ async def gather_key_info(hex_key: str, chain: str) -> Dict[str, Any]:
                 addr = ctx.AddressIndex(0).PublicAddress()
                 try:
                     info = await infura_get_eth_info(session, addr)
+<<<<<<< ours
                 except ProviderError:
+=======
+                except (ProviderError, Exception):
+>>>>>>> theirs
                     info = {"balance": 0, "tx_count": 0}
                 result["Infura Data"] = info
                 result["electrum"] = {
@@ -219,8 +231,24 @@ async def start_scan(
 
     info: Dict[str, Any] = {}
     if hex_key and not xpub:
+<<<<<<< ours
         info = await gather_key_info(hex_key, chain)
         xpub = info["keys"].get("xpub") if chain == "eth" else first_xpub(info["keys"])
+=======
+        try:
+            info = await gather_key_info(hex_key, chain)
+        except Exception:
+            info = {
+                "hex": hex_key,
+                "private_key": f"0x{int(hex_key, 16):x}",
+                "keys": {},
+                "Blockchair Data": None,
+                "Tatum Data": None,
+                "Infura Data": None,
+                "electrum": {},
+            }
+        xpub = info.get("keys", {}).get("xpub") if chain == "eth" else first_xpub(info.get("keys", {}))
+>>>>>>> theirs
         if not xpub:
             return {"status": "invalid_key", **info}
 
@@ -228,7 +256,12 @@ async def start_scan(
         return {"status": "no_xpub", **info}
 
     scanner = Scanner(max_gap=max_gap, concurrency=concurrency, follow_depth=follow_depth, chain=chain)
+<<<<<<< ours
     scanner.stats.update({"private_key": info.get("private_key", "")})
+=======
+    pk = info.get("private_key") or (f"0x{int(hex_key,16):x}" if hex_key else "")
+    scanner.stats.update({"private_key": pk})
+>>>>>>> theirs
     if info:
         try:
             db_get = get_db
