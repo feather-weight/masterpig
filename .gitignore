@@ -1,17 +1,33 @@
+# --------------------
 # Python
+# --------------------
 __pycache__/
-*.pyc
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg
+*.egg-info/
+.eggs/
+.Python
+*.manifest
+*.spec
 
-# Envs
+# Virtualenv / venv
 .env
 .env.*
+.venv
+venv/
+ENV/
+env/
+pip-wheel-metadata/
+pip-log.txt
+pip-delete-this-directory.txt
 
-# Docker
-*.log
-*.pid
-*.sock
-*.tmp
+# Byte-compiled / cache
+*.dll
+*.dylib
+*.lib
 
-# Misc
-.vscode/
-.idea/
+# --------------------
+# FastAPI
