@@ -1,4 +1,5 @@
 import os
+import logging
 from pymongo import MongoClient
 
 _client = None
@@ -17,5 +18,6 @@ def get_db():
         _client.admin.command("ping")
         _db = _client[dbname]
         return _db
-    except Exception:
+    except Exception as e:
+        logging.error("Error connecting to MongoDB: %s", e)
         return None
