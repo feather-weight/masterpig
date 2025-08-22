@@ -7,14 +7,21 @@ from fastapi.responses import (
 )
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
-from typing import Dict
+from typing import Dict, Any
 import asyncio, time, inspect, json
+import aiohttp
 
 from dotenv import load_dotenv
 
-from .scanner import Scanner, THRESHOLDS
+from .scanner import Scanner, THRESHOLDS, _ctx_from_xpub
 from .keygen import derive_extended_keys, first_xpub, generate_random_hex
 from .db import get_db
+from .providers import (
+    fetch_transactions,
+    infura_get_eth_info,
+    blockchair_address_info,
+    ProviderError,
+)
 
 app = FastAPI()
 
@@ -29,6 +36,106 @@ scan_task: asyncio.Task | None = None
 
 load_dotenv()
 
+
+async def gather_key_info(hex_key: str, chain: str) -> Dict[str, Any]:
+    """Return detailed information for ``hex_key`` including provider data."""
+
+    keys = derive_extended_keys(hex_key)
+    result: Dict[str, Any] = {
+        "hex": hex_key,
+        "private_key": f"0x{int(hex_key, 16):x}",
+        "keys": {
+            "xprv": keys.get("xprv"),
+            "xpub": keys.get("xpub"),
+            "yprv": keys.get("yprv"),
+            "ypub": keys.get("ypub"),
+            "zprv": keys.get("zprv"),
+            "zpub": keys.get("zpub"),
+            "seed": "N/A",
+        },
+        "Blockchair Data": None,
+        "Tatum Data": None,
+        "Infura Data": None,
+        "electrum": {},
+    }
+
+    async with aiohttp.ClientSession() as session:
+        if chain == "btc":
+            electrum: Dict[str, Any] = {}
+            if keys.get("xpub"):
+                ctx = _ctx_from_xpub(keys["xpub"], "btc")
+                addr = ctx.AddressIndex(0).PublicAddress()
+                try:
+                    txs = await fetch_transactions(session, addr)
+                except ProviderError:
+                    txs = []
+                electrum["p2pkh"] = {
+                    "address": addr,
+                    "balance": 0,
+                    "tx_count": len(txs),
+                    "history": [
+                        {
+                            "height": tx.get("block_height") or tx.get("blockNumber") or 0,
+                            "tx_hash": tx.get("txid") or tx.get("hash") or tx.get("tx_hash"),
+                        }
+                        for tx in txs[:2]
+                    ],
+                }
+                try:
+                    result["Blockchair Data"] = await blockchair_address_info(session, addr)
+                except Exception:
+                    result["Blockchair Data"] = {}
+                result["Tatum Data"] = txs
+            if keys.get("zpub"):
+                ctx = _ctx_from_xpub(keys["zpub"], "btc")
+                addr = ctx.AddressIndex(0).PublicAddress()
+                try:
+                    txs2 = await fetch_transactions(session, addr)
+                except ProviderError:
+                    txs2 = []
+                electrum["p2wpkh"] = {
+                    "address": addr,
+                    "balance": 0,
+                    "tx_count": len(txs2),
+                    "history": [
+                        {
+                            "height": tx.get("block_height") or tx.get("blockNumber") or 0,
+                            "tx_hash": tx.get("txid") or tx.get("hash") or tx.get("tx_hash"),
+                        }
+                        for tx in txs2[:2]
+                    ],
+                }
+                if result["Tatum Data"] in (None, []):
+                    result["Tatum Data"] = txs2
+                if result["Blockchair Data"] in (None, {}):
+                    try:
+                        result["Blockchair Data"] = await blockchair_address_info(session, addr)
+                    except Exception:
+                        result["Blockchair Data"] = {}
+            result["Infura Data"] = "N/A"
+            result["electrum"] = electrum
+        elif chain == "eth":
+            if keys.get("xpub"):
+                ctx = _ctx_from_xpub(keys["xpub"], "eth")
+                addr = ctx.AddressIndex(0).PublicAddress()
+                try:
+                    info = await infura_get_eth_info(session, addr)
+                except ProviderError:
+                    info = {"balance": 0, "tx_count": 0}
+                result["Infura Data"] = info
+                result["electrum"] = {
+                    "eth": {
+                        "address": addr,
+                        "balance": info.get("balance", 0),
+                        "tx_count": info.get("tx_count", 0),
+                        "history": [],
+                    }
+                }
+            result["Blockchair Data"] = "N/A"
+            result["Tatum Data"] = "N/A"
+
+    return result
+
 @app.get("/health", response_class=PlainTextResponse)
 async def health():
     return "ok"
@@ -42,7 +149,7 @@ async def index():
 
 
 @app.get("/range_stream")
-async def range_stream(start: str, end: str):
+async def range_stream(start: str, end: str, chain: str = "btc"):
     """Stream generated keys within ``start``-``end`` range as SSE."""
 
     try:
@@ -56,8 +163,7 @@ async def range_stream(start: str, end: str):
     async def event_gen():
         for val in range(s, e + 1):
             hex_key = f"{val:064x}"
-            keys = derive_extended_keys(hex_key)
-            data = {"hex": hex_key, **keys}
+            data = await gather_key_info(hex_key, chain)
             yield f"data: {json.dumps(data)}\n\n"
             await asyncio.sleep(0)
 
@@ -80,8 +186,6 @@ async def start_scan(
     if scan_task and not scan_task.done():
         return {"status": "already_running"}
 
-    extra: Dict[str, str] = {}
-
     if not (xpub or hex_key) and mode:
         m = mode.lower()
         if m == "random":
@@ -97,7 +201,6 @@ async def start_scan(
             if s > e:
                 return {"status": "invalid_range"}
             hex_key = f"{s:064x}"
-            extra.update({"range_start": start, "range_end": end})
         elif m == "specific":
             if not input:
                 return {"status": "no_query"}
@@ -114,34 +217,32 @@ async def start_scan(
         else:
             return {"status": "no_query"}
 
+    info: Dict[str, Any] = {}
     if hex_key and not xpub:
-        keys = derive_extended_keys(hex_key)
-        extra = {**extra, "hex_key": hex_key, **keys}
-        xpub = keys.get("xpub") if chain == "eth" else first_xpub(keys)
+        info = await gather_key_info(hex_key, chain)
+        xpub = info["keys"].get("xpub") if chain == "eth" else first_xpub(info["keys"])
         if not xpub:
-            return {"status": "invalid_key", **extra}
+            return {"status": "invalid_key", **info}
 
     if not xpub:
-        return {"status": "no_xpub", **extra}
+        return {"status": "no_xpub", **info}
 
     scanner = Scanner(max_gap=max_gap, concurrency=concurrency, follow_depth=follow_depth, chain=chain)
-    scanner.stats.update(extra)
-    # Persist key information for later analysis
-    if extra:
+    scanner.stats.update({"private_key": info.get("private_key", "")})
+    if info:
         try:
             db_get = get_db
             db = await db_get() if inspect.iscoroutinefunction(db_get) else db_get()
             if db is not None:
                 await asyncio.to_thread(
                     db.keys.insert_one,
-                    {"started_at": int(time.time()), "chain": chain, **extra},
+                    {"started_at": int(time.time()), "chain": chain, **info},
                 )
         except Exception:
-            # Logging to DB is best-effort; ignore failures
             pass
 
     scan_task = asyncio.create_task(scanner.scan_xpub(xpub))
-    return {"status": "started", **extra}
+    return {"status": "started", **info}
 
 @app.post("/stop_scan")
 async def stop_scan():

@@ -8,6 +8,7 @@
       body { font-family: system-ui, sans-serif; margin: 2rem; }
       button { padding: .5rem 1rem; margin-right: .5rem; }
       pre { background:#111; color:#eee; padding:1rem; border-radius:8px; }
+      .hex-key { color: gold; font-weight: bold; }
     </style>
   </head>
   <body>
@@ -35,7 +36,7 @@
       <button onclick="refresh()">Refresh</button>
     </p>
     <h3>Live Output</h3>
-    <pre id="output" style="height:200px;overflow:auto;"></pre>
+    <div id="output" style="height:200px;overflow:auto;"></div>
     <h3>/health</h3>
     <pre id="health"></pre>
     <h3>/stats</h3>
@@ -54,7 +55,7 @@
       async function start() {
         const mode = document.getElementById('mode').value;
         if (mode === 'range') {
-          document.getElementById('output').textContent = '';
+          document.getElementById('output').innerHTML = '';
           rangeState.start = document.getElementById('start_int').value;
           rangeState.end = document.getElementById('end_int').value;
           rangeState.current = null;
@@ -66,7 +67,8 @@
           params.append('input', document.getElementById('specific_input').value);
         }
         const r = await fetch('/start_scan', {method:'POST', body:params});
-        alert(await r.text());
+        const data = await r.json();
+        handleResult(data);
         refresh();
       }
 
@@ -78,9 +80,8 @@
         es.onmessage = ev => {
           const data = JSON.parse(ev.data);
           rangeState.current = data.hex;
-          const out = document.getElementById('output');
-          out.textContent += data.hex + (data.xpub ? ` ${data.xpub}` : '') + '\n';
-          if (rangeState.autoScroll) out.scrollTop = out.scrollHeight;
+          handleResult(data);
+          if (rangeState.autoScroll) document.getElementById('output').scrollTop = document.getElementById('output').scrollHeight;
         };
         es.onerror = () => { es.close(); };
       }
@@ -117,6 +118,26 @@
         const el = this;
         rangeState.autoScroll = (el.scrollTop + el.clientHeight >= el.scrollHeight - 5);
       });
+
+      function ding() {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = ctx.createOscillator();
+        osc.frequency.value = 800;
+        osc.connect(ctx.destination);
+        osc.start();
+        setTimeout(()=>osc.stop(),150);
+      }
+
+      function handleResult(data) {
+        const out = document.getElementById('output');
+        const pre = document.createElement('pre');
+        const jsonStr = JSON.stringify(data, null, 2);
+        pre.innerHTML = jsonStr.replace(`"private_key": "${data.private_key}"`, `"private_key": "<span class='hex-key'>${data.private_key}</span>"`);
+        out.appendChild(pre);
+        const hasTx = Object.values(data.electrum || {}).some(v => v.tx_count > 0);
+        if (hasTx) ding();
+      }
+
       async function refresh() {
         document.getElementById('health').textContent = await (await fetch('/health')).text();
         document.getElementById('stats').textContent = JSON.stringify(await (await fetch('/stats')).json(), null, 2);

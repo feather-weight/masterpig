@@ -14,6 +14,7 @@ import aiohttp
 
 TATUM_API = "https://api.tatum.io/v3"
 BLOCKSTREAM_API = "https://blockstream.info/api"
+BLOCKCHAIR_API = "https://api.blockchair.com/bitcoin"
 
 
 def _infura_url() -> str:
@@ -95,6 +96,16 @@ async def blockstream_get_transactions(session: aiohttp.ClientSession, address: 
     return transactions
 
 
+async def blockchair_address_info(session: aiohttp.ClientSession, address: str) -> Dict[str, Any]:
+    """Return general information for ``address`` using Blockchair."""
+
+    url = f"{BLOCKCHAIR_API}/dashboards/address/{address}"
+    async with session.get(url, timeout=30) as resp:
+        if resp.status != 200:
+            raise ProviderError(f"blockchair_status_{resp.status}")
+        return await resp.json()
+
+
 async def fetch_transactions(session: aiohttp.ClientSession, address: str) -> List[Dict[str, Any]]:
     """Fetch Bitcoin transactions for ``address`` using the configured provider.
 
@@ -147,6 +158,7 @@ async def infura_get_eth_info(session: aiohttp.ClientSession, address: str) -> D
 __all__ = [
     "fetch_transactions",
     "infura_get_eth_info",
+    "blockchair_address_info",
     "ProviderError",
 ]
 
