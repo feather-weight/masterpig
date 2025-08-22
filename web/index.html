@@ -1,0 +1,46 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Masterpig App</title>
+    <style>
+      body { font-family: system-ui, sans-serif; margin: 2rem; }
+      button { padding: .5rem 1rem; margin-right: .5rem; }
+      pre { background:#111; color:#eee; padding:1rem; border-radius:8px; }
+    </style>
+  </head>
+  <body>
+    <h1>Masterpig Scanner</h1>
+    <p>
+      <button onclick="start()">Start Demo Scan</button>
+      <button onclick="stop()">Stop</button>
+      <button onclick="refresh()">Refresh</button>
+    </p>
+    <h3>/health</h3>
+    <pre id="health"></pre>
+    <h3>/stats</h3>
+    <pre id="stats"></pre>
+    <h3>/metrics</h3>
+    <pre id="metrics"></pre>
+    <script>
+      async function start() {
+        const r = await fetch('/start_scan', {method:'POST', body:new URLSearchParams({xpub:'demo-xpub'})});
+        alert(await r.text());
+        refresh();
+      }
+      async function stop() {
+        const r = await fetch('/stop_scan', {method:'POST'});
+        alert(await r.text());
+        refresh();
+      }
+      async function refresh() {
+        document.getElementById('health').textContent = await (await fetch('/health')).text();
+        document.getElementById('stats').textContent = JSON.stringify(await (await fetch('/stats')).json(), null, 2);
+        document.getElementById('metrics').textContent = JSON.stringify(await (await fetch('/metrics')).json(), null, 2);
+      }
+      refresh();
+      setInterval(refresh, 2000);
+    </script>
+  </body>
+</html>
