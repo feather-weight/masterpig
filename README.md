@@ -31,9 +31,14 @@ curl -s http://localhost:3000/metrics | jq
 
 Start/stop a demo scan:
 ```bash
+# scan a specific xpub
 curl -sS -X POST "http://localhost:3000/start_scan" --data-urlencode "xpub=demo-xpub" | jq
 # or derive from a 64-char hex seed
 curl -sS -X POST "http://localhost:3000/start_scan" --data-urlencode "hex_key=..." | jq
+# web UI helpers:
+#   mode=random      -> server generates a random valid hex key
+#   mode=range       -> supply start/end hex bounds
+#   mode=specific    -> send ?input=<hex-or-xpub>
 # optionally specify ?chain=eth to scan Ethereum xpubs
 curl -s http://localhost:3000/stats | jq
 curl -s http://localhost:3000/metrics | jq

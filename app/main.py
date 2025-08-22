@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Form
 from fastapi.responses import PlainTextResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
@@ -8,7 +8,7 @@ import asyncio, time, inspect
 from dotenv import load_dotenv
 
 from .scanner import Scanner, THRESHOLDS
-from .keygen import derive_extended_keys, first_xpub
+from .keygen import derive_extended_keys, first_xpub, generate_random_hex
 from .db import get_db
 
 app = FastAPI()
@@ -37,8 +37,12 @@ async def index():
 
 @app.post("/start_scan")
 async def start_scan(
-    xpub: str | None = None,
-    hex_key: str | None = None,
+    mode: str | None = Form(None),
+    start: str | None = Form(None),
+    end: str | None = Form(None),
+    input: str | None = Form(None),
+    xpub: str | None = Form(None),
+    hex_key: str | None = Form(None),
     max_gap: int = 20,
     concurrency: int = 16,
     follow_depth: int = 2,
@@ -49,10 +53,46 @@ async def start_scan(
         return {"status": "already_running"}
 
     extra: Dict[str, str] = {}
+
+    if not (xpub or hex_key) and mode:
+        m = mode.lower()
+        if m == "random":
+            hex_key = generate_random_hex()
+        elif m == "range":
+            if start is None or end is None:
+                return {"status": "no_query"}
+            try:
+                s = int(start, 16)
+                e = int(end, 16)
+            except ValueError:
+                return {"status": "invalid_range"}
+            if s > e:
+                return {"status": "invalid_range"}
+            hex_key = f"{s:064x}"
+            extra.update({"range_start": start, "range_end": end})
+        elif m == "specific":
+            if not input:
+                return {"status": "no_query"}
+            val = input.strip()
+            try:
+                int(val, 16)
+                is_hex = len(val) <= 64
+            except ValueError:
+                is_hex = False
+            if is_hex:
+                hex_key = val
+            else:
+                xpub = val
+        else:
+            return {"status": "no_query"}
+
     if hex_key and not xpub:
         keys = derive_extended_keys(hex_key)
-        extra = {"hex_key": hex_key, **keys}
+        extra = {**extra, "hex_key": hex_key, **keys}
         xpub = keys.get("xpub") if chain == "eth" else first_xpub(keys)
+        if not xpub:
+            return {"status": "invalid_key", **extra}
+
     if not xpub:
         return {"status": "no_xpub", **extra}
 
