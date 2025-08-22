@@ -34,11 +34,11 @@ async def index():
     return HTMLResponse("<h1>App is running</h1>", status_code=200)
 
 @app.post("/start_scan")
-async def start_scan(xpub: str, max_gap: int = 20, concurrency: int = 16, follow_depth: int = 2):
+async def start_scan(xpub: str, max_gap: int = 20, concurrency: int = 16, follow_depth: int = 2, chain: str = "btc"):
     global scanner, scan_task
     if scan_task and not scan_task.done():
         return {"status": "already_running"}
-    scanner = Scanner(max_gap=max_gap, concurrency=concurrency, follow_depth=follow_depth)
+    scanner = Scanner(max_gap=max_gap, concurrency=concurrency, follow_depth=follow_depth, chain=chain)
     scan_task = asyncio.create_task(scanner.scan_xpub(xpub))
     return {"status": "started"}
 

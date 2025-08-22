@@ -23,15 +23,17 @@ from bip_utils import (
     Bip44Changes,
 )
 
-from .providers import fetch_transactions, ProviderError
+from .providers import fetch_transactions, ProviderError, infura_get_eth_info
 from .db import get_db
 
 THRESHOLDS = [1, 2, 5, 10, 50]
 
 
-def _ctx_from_xpub(xpub: str):
+def _ctx_from_xpub(xpub: str, chain: str):
     """Return a bip-utils context for deriving addresses from ``xpub``."""
 
+    if chain == "eth":
+        return Bip44.FromExtendedKey(xpub, Bip44Coins.ETHEREUM).Change(Bip44Changes.CHAIN_EXT)
     if xpub.startswith("ypub"):
         return Bip49.FromExtendedKey(xpub, Bip44Coins.BITCOIN).Change(Bip44Changes.CHAIN_EXT)
     if xpub.startswith("zpub"):
@@ -45,10 +47,11 @@ def _ctx_from_xpub(xpub: str):
 
 
 class Scanner:
-    def __init__(self, max_gap: int = 20, concurrency: int = 16, follow_depth: int = 2):
+    def __init__(self, max_gap: int = 20, concurrency: int = 16, follow_depth: int = 2, chain: str = "btc"):
         self.max_gap = max_gap
         self.concurrency = concurrency
         self.follow_depth = follow_depth
+        self.chain = chain
         self._stop = False
 
         self.stats: Dict[str, int] = {
@@ -86,31 +89,40 @@ class Scanner:
         Returns the number of transactions found.
         """
 
-        try:
-            txs = await fetch_transactions(session, address)
-        except ProviderError:
-            return 0
-
         self.stats["addresses_scanned"] += 1
         self._address_times.append(int(time.time()))
 
-        tx_count = len(txs)
+        if self.chain == "eth":
+            try:
+                info = await infura_get_eth_info(session, address)
+            except ProviderError:
+                return 0
+
+            tx_count = info.get("tx_count", 0)
+            balance = info.get("balance", 0)
+            next_addrs: Set[str] = set()
+        else:
+            try:
+                txs = await fetch_transactions(session, address)
+            except ProviderError:
+                return 0
+
+            tx_count = len(txs)
+            balance = 0
+            next_addrs = set()
+            for tx in txs:
+                for out in tx.get("outputs", []):
+                    addr = out.get("address")
+                    val = int(out.get("value", 0))
+                    balance += val if addr == address else 0
+                    if addr and addr not in self._seen:
+                        next_addrs.add(addr)
+
         if tx_count > 0:
             self.stats["active_addresses"] += 1
             for t in THRESHOLDS:
                 if tx_count > t:
                     self.stats[f"tx_gt_{t}"] += 1
-
-        # Balance and next addresses
-        balance = 0
-        next_addrs: Set[str] = set()
-        for tx in txs:
-            for out in tx.get("outputs", []):
-                addr = out.get("address")
-                val = int(out.get("value", 0))
-                balance += val if addr == address else 0
-                if addr and addr not in self._seen:
-                    next_addrs.add(addr)
 
         if balance > 0:
             self.stats["with_balance"] += 1
@@ -125,7 +137,7 @@ class Scanner:
                 }
             )
 
-        if depth < self.follow_depth:
+        if self.chain != "eth" and depth < self.follow_depth:
             for addr in next_addrs:
                 if addr not in self._seen:
                     self._seen.add(addr)
@@ -149,7 +161,7 @@ class Scanner:
 
     # ------------------------------------------------------------------
     async def scan_xpub(self, xpub: str):
-        ctx = _ctx_from_xpub(xpub)
+        ctx = _ctx_from_xpub(xpub, self.chain)
         async with aiohttp.ClientSession() as session:
             workers = [asyncio.create_task(self._worker(session)) for _ in range(self.concurrency)]
 

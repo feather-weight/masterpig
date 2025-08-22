@@ -15,6 +15,18 @@ import aiohttp
 TATUM_API = "https://api.tatum.io/v3"
 
 
+def _infura_url() -> str:
+    """Return the Infura endpoint for Ethereum mainnet.
+
+    The function reads ``INFURA_PROJECT_ID`` from the environment and
+    constructs the JSON-RPC URL. A missing project ID results in an empty
+    string which the caller should treat as a configuration error.
+    """
+
+    project_id = os.getenv("INFURA_PROJECT_ID")
+    return f"https://mainnet.infura.io/v3/{project_id}" if project_id else ""
+
+
 class ProviderError(Exception):
     """Raised when an upstream provider returns an unexpected result."""
 
@@ -60,15 +72,46 @@ async def tatum_get_transactions(session: aiohttp.ClientSession, address: str) -
 
 
 async def fetch_transactions(session: aiohttp.ClientSession, address: str) -> List[Dict[str, Any]]:
-    """Fetch transactions for ``address`` using the configured providers.
-
-    At the moment this proxies to :func:`tatum_get_transactions`, but the
-    wrapper makes it easy to add fallback providers such as Infura or
-    Electrum in the future.
-    """
+    """Fetch Bitcoin transactions for ``address`` using Tatum."""
 
     return await tatum_get_transactions(session, address)
 
 
-__all__ = ["fetch_transactions", "ProviderError"]
+async def infura_get_eth_info(session: aiohttp.ClientSession, address: str) -> Dict[str, int]:
+    """Return basic information for an Ethereum ``address`` using Infura.
+
+    Infura does not expose a dedicated "transactions for address" endpoint
+    like Tatum. Instead we query the balance and transaction count via JSON-
+    RPC which can be used for lightweight scans.
+    """
+
+    url = _infura_url()
+    if not url:
+        raise ProviderError("infura_project_id_missing")
+
+    payloads = [
+        {"jsonrpc": "2.0", "method": "eth_getBalance", "params": [address, "latest"], "id": 1},
+        {"jsonrpc": "2.0", "method": "eth_getTransactionCount", "params": [address, "latest"], "id": 2},
+    ]
+
+    results: Dict[str, int] = {"balance": 0, "tx_count": 0}
+    for payload in payloads:
+        async with session.post(url, json=payload, timeout=30) as resp:
+            if resp.status != 200:
+                raise ProviderError(f"infura_status_{resp.status}")
+            data = await resp.json()
+
+        if "error" in data:
+            raise ProviderError("infura_error")
+
+        value = data.get("result", "0x0")
+        if payload["method"] == "eth_getBalance":
+            results["balance"] = int(value, 16)
+        else:
+            results["tx_count"] = int(value, 16)
+
+    return results
+
+
+__all__ = ["fetch_transactions", "infura_get_eth_info", "ProviderError"]
 

@@ -84,7 +84,19 @@ async def main() -> None:
                 from .scanner import Scanner
 
                 print("  Initiating BTC scan for", xpub)
-                scanner = Scanner()
+                scanner = Scanner(chain="btc")
+                try:
+                    await scanner.scan_xpub(xpub)
+                except Exception as exc:  # pragma: no cover - best effort
+                    print("  scan failed:", exc)
+
+        if "all" in chains or "eth" in chains:
+            xpub = keys.get("xpub")
+            if xpub:
+                from .scanner import Scanner
+
+                print("  Initiating ETH scan for", xpub)
+                scanner = Scanner(chain="eth")
                 try:
                     await scanner.scan_xpub(xpub)
                 except Exception as exc:  # pragma: no cover - best effort
