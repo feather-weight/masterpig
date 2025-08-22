@@ -4,6 +4,8 @@ from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 import asyncio, time, inspect
 
+from dotenv import load_dotenv
+
 from .scanner import Scanner, THRESHOLDS
 from .db import get_db
 
@@ -17,6 +19,8 @@ if STATIC_DIR.exists():
 
 scanner: Scanner | None = None
 scan_task: asyncio.Task | None = None
+
+load_dotenv()
 
 @app.get("/health", response_class=PlainTextResponse)
 async def health():
@@ -77,14 +81,30 @@ async def metrics():
     # No DB? Return in-memory snapshot
     if db is None:
         if scanner:
+            now_ts = int(time.time())
             result["thresholds"] = {f"gt_{t}": int(scanner.stats.get(f"tx_gt_{t}", 0)) for t in THRESHOLDS}
-            base = {
-                "addresses_scanned": int(scanner.stats.get("addresses_scanned", 0)),
-                "active_addresses":   int(scanner.stats.get("active_addresses", 0)),
-                "with_balance":       int(scanner.stats.get("with_balance", 0)),
+
+            def count_window(seconds: int) -> int:
+                return len([ts for ts in scanner.address_times if ts >= now_ts - seconds])
+
+            windows = {
+                "minute": 60,
+                "hour": 3600,
+                "day": 86400,
+                "week": 604800,
+                "month": 2592000,
+                "year": 31536000,
             }
-            for g in ["minute","hour","day","week","month","year"]:
-                result["buckets"][g] = base
+
+            base_active = {
+                "active_addresses": int(scanner.stats.get("active_addresses", 0)),
+                "with_balance": int(scanner.stats.get("with_balance", 0)),
+            }
+            for name, secs in windows.items():
+                result["buckets"][name] = {
+                    "addresses_scanned": count_window(secs),
+                    **base_active,
+                }
         return JSONResponse(result)
 
     # With DB (PyMongo sync)
