@@ -5,6 +5,7 @@ __pycache__/
 # Envs
 .env
 .env.*
+!.env.example
 
 # Docker
 *.log

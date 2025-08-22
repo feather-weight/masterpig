@@ -21,6 +21,7 @@ class ProviderError(Exception):
 
 async def tatum_get_transactions(session: aiohttp.ClientSession, address: str) -> List[Dict[str, Any]]:
 <<<<<<< ours
+<<<<<<< ours
     """Return the list of transactions for ``address`` using Tatum.
 
     The function wraps the ``GET /bitcoin/transaction/address`` endpoint and
@@ -37,10 +38,14 @@ async def tatum_get_transactions(session: aiohttp.ClientSession, address: str) -
 =======
     """Return the full list of transactions for ``address`` using Tatum."""
 >>>>>>> theirs
+=======
+    """Return the full list of transactions for ``address`` using Tatum."""
+>>>>>>> theirs
 
     api_key = os.getenv("TATUM_API_KEY")
     headers = {"x-api-key": api_key} if api_key else {}
     url = f"{TATUM_API}/bitcoin/transaction/address/{address}"
+<<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
 
@@ -56,16 +61,22 @@ async def tatum_get_transactions(session: aiohttp.ClientSession, address: str) -
         }
 
 =======
+=======
+>>>>>>> theirs
     params = {"pageSize": 50, "page": 1}
     all_txs: List[Dict[str, Any]] = []
 
     while True:
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
         async with session.get(url, headers=headers, params=params, timeout=30) as resp:
             if resp.status != 200:
                 raise ProviderError(f"tatum_status_{resp.status}")
             data = await resp.json()
 
+<<<<<<< ours
 <<<<<<< ours
         # Tatum returns {"txs": [...]} for this endpoint
         if isinstance(data, dict) and "txs" in data:
@@ -98,6 +109,8 @@ async def tatum_get_transactions(session: aiohttp.ClientSession, address: str) -
     raise ProviderError("tatum_invalid_response")
 >>>>>>> theirs
 =======
+=======
+>>>>>>> theirs
         if isinstance(data, dict) and "txs" in data:
             page = data.get("txs", [])
         elif isinstance(data, list):
@@ -111,6 +124,9 @@ async def tatum_get_transactions(session: aiohttp.ClientSession, address: str) -
         params["page"] += 1
 
     return all_txs
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 
 
