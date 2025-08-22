@@ -33,3 +33,17 @@ curl -sS -X POST "http://localhost:3000/stop_scan" | jq
 
 Landing page: http://localhost/
 App UI:       http://localhost:3000/
+
+## Derive extended keys
+
+An interactive helper for generating extended private/public keys from
+hexadecimal values is available:
+
+```bash
+python -m app.keygen
+```
+
+The script lets you supply a specific hex value, a range, or a set of
+random values and prints the corresponding `tprv/uprv/xprv/yprv/zprv`
+and `tpub/upub/xpub/ypub/zpub` keys. If Bitcoin scanning is selected the
+resulting xpub/tpub is fed directly into the scanner.

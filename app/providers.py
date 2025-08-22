@@ -23,14 +23,21 @@ async def tatum_get_transactions(session: aiohttp.ClientSession, address: str) -
     """Return the list of transactions for ``address`` using Tatum.
 
     The function wraps the ``GET /bitcoin/transaction/address`` endpoint and
+<<<<<<< ours
     normalises the result to a simple list of transactions. All pages of
     results are retrieved by iterating over the ``page``/``offset`` parameters
     until no more transactions are returned.
+=======
+    normalises the result to a simple list of transactions. Only the first
+    page of results is retrieved to keep the call lightweight; callers are
+    free to implement pagination if required.
+>>>>>>> theirs
     """
 
     api_key = os.getenv("TATUM_API_KEY")
     headers = {"x-api-key": api_key} if api_key else {}
     url = f"{TATUM_API}/bitcoin/transaction/address/{address}"
+<<<<<<< ours
 
     transactions: List[Dict[str, Any]] = []
     page = 1
@@ -63,6 +70,21 @@ async def tatum_get_transactions(session: aiohttp.ClientSession, address: str) -
         page += 1
 
     return transactions
+=======
+    params = {"pageSize": 50}
+
+    async with session.get(url, headers=headers, params=params, timeout=30) as resp:
+        if resp.status != 200:
+            raise ProviderError(f"tatum_status_{resp.status}")
+        data = await resp.json()
+
+    # Tatum returns {"txs": [...]} for this endpoint
+    if isinstance(data, dict) and "txs" in data:
+        return data.get("txs", [])
+    if isinstance(data, list):
+        return data
+    raise ProviderError("tatum_invalid_response")
+>>>>>>> theirs
 
 
 async def fetch_transactions(session: aiohttp.ClientSession, address: str) -> List[Dict[str, Any]]:
