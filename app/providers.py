@@ -20,6 +20,7 @@ class ProviderError(Exception):
 
 
 async def tatum_get_transactions(session: aiohttp.ClientSession, address: str) -> List[Dict[str, Any]]:
+<<<<<<< ours
     """Return the list of transactions for ``address`` using Tatum.
 
     The function wraps the ``GET /bitcoin/transaction/address`` endpoint and
@@ -33,10 +34,14 @@ async def tatum_get_transactions(session: aiohttp.ClientSession, address: str) -
     free to implement pagination if required.
 >>>>>>> theirs
     """
+=======
+    """Return the full list of transactions for ``address`` using Tatum."""
+>>>>>>> theirs
 
     api_key = os.getenv("TATUM_API_KEY")
     headers = {"x-api-key": api_key} if api_key else {}
     url = f"{TATUM_API}/bitcoin/transaction/address/{address}"
+<<<<<<< ours
 <<<<<<< ours
 
     transactions: List[Dict[str, Any]] = []
@@ -50,11 +55,18 @@ async def tatum_get_transactions(session: aiohttp.ClientSession, address: str) -
             "offset": (page - 1) * page_size,
         }
 
+=======
+    params = {"pageSize": 50, "page": 1}
+    all_txs: List[Dict[str, Any]] = []
+
+    while True:
+>>>>>>> theirs
         async with session.get(url, headers=headers, params=params, timeout=30) as resp:
             if resp.status != 200:
                 raise ProviderError(f"tatum_status_{resp.status}")
             data = await resp.json()
 
+<<<<<<< ours
         # Tatum returns {"txs": [...]} for this endpoint
         if isinstance(data, dict) and "txs" in data:
             txs = data.get("txs", [])
@@ -84,6 +96,21 @@ async def tatum_get_transactions(session: aiohttp.ClientSession, address: str) -
     if isinstance(data, list):
         return data
     raise ProviderError("tatum_invalid_response")
+>>>>>>> theirs
+=======
+        if isinstance(data, dict) and "txs" in data:
+            page = data.get("txs", [])
+        elif isinstance(data, list):
+            page = data
+        else:
+            raise ProviderError("tatum_invalid_response")
+
+        if not page:
+            break
+        all_txs.extend(page)
+        params["page"] += 1
+
+    return all_txs
 >>>>>>> theirs
 
 

@@ -2,10 +2,17 @@ FROM python:3.11-slim
 WORKDIR /app
 
 COPY requirements.txt ./
+<<<<<<< ours
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential libffi-dev libssl-dev rustc cargo \
     && rm -rf /var/lib/apt/lists/*
 
+=======
+# System build dependencies for wheels like coincurve and pynacl
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential libffi-dev libssl-dev rustc cargo \
+    && rm -rf /var/lib/apt/lists/*
+>>>>>>> theirs
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
