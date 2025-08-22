@@ -8,7 +8,7 @@ import asyncio, time, inspect
 from dotenv import load_dotenv
 
 from .scanner import Scanner, THRESHOLDS
-from .keygen import derive_extended_keys
+from .keygen import derive_extended_keys, first_xpub
 from .db import get_db
 
 app = FastAPI()
@@ -51,10 +51,10 @@ async def start_scan(
     extra: Dict[str, str] = {}
     if hex_key and not xpub:
         keys = derive_extended_keys(hex_key)
-        xpub = keys.get("xpub") or keys.get("tpub")
         extra = {"hex_key": hex_key, **keys}
+        xpub = keys.get("xpub") if chain == "eth" else first_xpub(keys)
     if not xpub:
-        return {"status": "no_xpub"}
+        return {"status": "no_xpub", **extra}
 
     scanner = Scanner(max_gap=max_gap, concurrency=concurrency, follow_depth=follow_depth, chain=chain)
     scanner.stats.update(extra)

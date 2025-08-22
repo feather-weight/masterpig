@@ -34,15 +34,42 @@ _KEY_VERSIONS: Dict[str, Bip32KeyNetVersions] = {
 # ---------------------------------------------------------------------------
 
 def derive_extended_keys(hex_key: str) -> Dict[str, str]:
-    """Derive extended private/public keys from a 64-character hex string."""
+    """Derive extended private/public keys from a hexadecimal string.
 
-    key_bytes = bytes.fromhex(hex_key)
+    ``hex_key`` may be shorter than 64 characters; it will be left padded
+    with zeros. Any invalid input results in an empty dict which allows the
+    caller to gracefully handle errors without raising exceptions.
+    """
+
+    try:
+        hex_key = hex_key.strip().lower().rjust(64, "0")[-64:]
+        key_bytes = bytes.fromhex(hex_key)
+    except ValueError:
+        # ``bytes.fromhex`` raises ``ValueError`` for invalid hex strings.
+        return {}
+
     results: Dict[str, str] = {}
     for prefix, net_ver in _KEY_VERSIONS.items():
-        ctx = Bip32Slip10Secp256k1.FromPrivateKey(key_bytes, key_net_ver=net_ver)
+        try:
+            ctx = Bip32Slip10Secp256k1.FromPrivateKey(key_bytes, key_net_ver=net_ver)
+        except Exception:  # pragma: no cover - invalid key edge case
+            return {}
         results[f"{prefix}prv"] = ctx.PrivateKey().ToExtended()
         results[f"{prefix}pub"] = ctx.PublicKey().ToExtended()
     return results
+
+
+def first_xpub(keys: Dict[str, str]) -> str | None:
+    """Return the first available extended public key from ``keys``.
+
+    The function checks for the common prefixes (xpub, ypub, zpub, tpub, upub)
+    and returns the first match. ``None`` is returned if none are found.
+    """
+
+    for k in ("xpub", "ypub", "zpub", "tpub", "upub"):
+        if keys.get(k):
+            return keys[k]
+    return None
 
 # ---------------------------------------------------------------------------
 
@@ -79,7 +106,7 @@ async def main() -> None:
         print()
 
         if "all" in chains or "btc" in chains:
-            xpub = keys.get("xpub") or keys.get("tpub")
+            xpub = first_xpub(keys)
             if xpub:
                 from .scanner import Scanner
 
