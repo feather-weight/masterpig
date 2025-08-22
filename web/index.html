@@ -13,7 +13,22 @@
   <body>
     <h1>Masterpig Scanner</h1>
     <p>
-      <button onclick="start()">Start Demo Scan</button>
+      Mode:
+      <select id="mode" onchange="updateModeFields()">
+        <option value="range">Range</option>
+        <option value="random">Random</option>
+        <option value="specific">Specific</option>
+      </select>
+    </p>
+    <div id="range-fields">
+      <label>Start: <input type="text" id="start_int" /></label>
+      <label>End: <input type="text" id="end_int" /></label>
+    </div>
+    <div id="specific-fields" style="display:none">
+      <label>Key/Xpub: <input type="text" id="specific_input" /></label>
+    </div>
+    <p>
+      <button onclick="start()">Start</button>
       <button onclick="stop()">Stop</button>
       <button onclick="refresh()">Refresh</button>
     </p>
@@ -24,8 +39,22 @@
     <h3>/metrics</h3>
     <pre id="metrics"></pre>
     <script>
+      function updateModeFields() {
+        const mode = document.getElementById('mode').value;
+        document.getElementById('range-fields').style.display = mode === 'range' ? 'block' : 'none';
+        document.getElementById('specific-fields').style.display = mode === 'specific' ? 'block' : 'none';
+      }
+
       async function start() {
-        const r = await fetch('/start_scan', {method:'POST', body:new URLSearchParams({xpub:'demo-xpub'})});
+        const mode = document.getElementById('mode').value;
+        const params = new URLSearchParams({mode});
+        if (mode === 'range') {
+          params.append('start', document.getElementById('start_int').value);
+          params.append('end', document.getElementById('end_int').value);
+        } else if (mode === 'specific') {
+          params.append('input', document.getElementById('specific_input').value);
+        }
+        const r = await fetch('/start_scan', {method:'POST', body:params});
         alert(await r.text());
         refresh();
       }
