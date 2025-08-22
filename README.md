@@ -12,6 +12,7 @@ API access and the database:
 ```
 TATUM_API_KEY=your-tatum-key
 INFURA_PROJECT_ID=your-infura-project-id
+BTC_PROVIDER=tatum   # or blockstream
 MONGO_URI=your-mongodb-uri
 MONGO_DB=MasterPig
 ```
@@ -26,6 +27,8 @@ curl -s http://localhost:3000/metrics | jq
 Start/stop a demo scan:
 ```bash
 curl -sS -X POST "http://localhost:3000/start_scan" --data-urlencode "xpub=demo-xpub" | jq
+# or derive from a 64-char hex seed
+curl -sS -X POST "http://localhost:3000/start_scan" --data-urlencode "hex_key=..." | jq
 # optionally specify ?chain=eth to scan Ethereum xpubs
 curl -s http://localhost:3000/stats | jq
 curl -s http://localhost:3000/metrics | jq

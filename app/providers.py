@@ -2,17 +2,18 @@
 
 Currently the Tatum API is implemented for full transaction history
 lookups, but the module is structured so additional providers can be added
-(e.g. Infura, Electrum) if required.
+(e.g. Blockstream, Infura, Electrum) if required.
 """
 
 from __future__ import annotations
 
 import os
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 import aiohttp
 
 TATUM_API = "https://api.tatum.io/v3"
+BLOCKSTREAM_API = "https://blockstream.info/api"
 
 
 def _infura_url() -> str:
@@ -71,9 +72,39 @@ async def tatum_get_transactions(session: aiohttp.ClientSession, address: str) -
     return transactions
 
 
-async def fetch_transactions(session: aiohttp.ClientSession, address: str) -> List[Dict[str, Any]]:
-    """Fetch Bitcoin transactions for ``address`` using Tatum."""
+async def blockstream_get_transactions(session: aiohttp.ClientSession, address: str) -> List[Dict[str, Any]]:
+    """Return the full list of transactions for ``address`` using Blockstream."""
 
+    url = f"{BLOCKSTREAM_API}/address/{address}/txs"
+    transactions: List[Dict[str, Any]] = []
+    last_tx: Optional[str] = None
+
+    while True:
+        path = url if last_tx is None else f"{BLOCKSTREAM_API}/address/{address}/txs/chain/{last_tx}"
+        async with session.get(path, timeout=30) as resp:
+            if resp.status != 200:
+                raise ProviderError(f"blockstream_status_{resp.status}")
+            data = await resp.json()
+
+        if not isinstance(data, list) or not data:
+            break
+
+        transactions.extend(data)
+        last_tx = data[-1].get("txid")
+
+    return transactions
+
+
+async def fetch_transactions(session: aiohttp.ClientSession, address: str) -> List[Dict[str, Any]]:
+    """Fetch Bitcoin transactions for ``address`` using the configured provider.
+
+    The provider is selected via the ``BTC_PROVIDER`` environment variable
+    and defaults to ``tatum``. ``blockstream`` is also supported.
+    """
+
+    provider = os.getenv("BTC_PROVIDER", "tatum").lower()
+    if provider == "blockstream":
+        return await blockstream_get_transactions(session, address)
     return await tatum_get_transactions(session, address)
 
 
@@ -113,5 +144,9 @@ async def infura_get_eth_info(session: aiohttp.ClientSession, address: str) -> D
     return results
 
 
-__all__ = ["fetch_transactions", "infura_get_eth_info", "ProviderError"]
+__all__ = [
+    "fetch_transactions",
+    "infura_get_eth_info",
+    "ProviderError",
+]
 

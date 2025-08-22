@@ -2,11 +2,13 @@ from fastapi import FastAPI
 from fastapi.responses import PlainTextResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
+from typing import Dict
 import asyncio, time, inspect
 
 from dotenv import load_dotenv
 
 from .scanner import Scanner, THRESHOLDS
+from .keygen import derive_extended_keys
 from .db import get_db
 
 app = FastAPI()
@@ -34,13 +36,30 @@ async def index():
     return HTMLResponse("<h1>App is running</h1>", status_code=200)
 
 @app.post("/start_scan")
-async def start_scan(xpub: str, max_gap: int = 20, concurrency: int = 16, follow_depth: int = 2, chain: str = "btc"):
+async def start_scan(
+    xpub: str | None = None,
+    hex_key: str | None = None,
+    max_gap: int = 20,
+    concurrency: int = 16,
+    follow_depth: int = 2,
+    chain: str = "btc",
+):
     global scanner, scan_task
     if scan_task and not scan_task.done():
         return {"status": "already_running"}
+
+    extra: Dict[str, str] = {}
+    if hex_key and not xpub:
+        keys = derive_extended_keys(hex_key)
+        xpub = keys.get("xpub") or keys.get("tpub")
+        extra = {"hex_key": hex_key, **keys}
+    if not xpub:
+        return {"status": "no_xpub"}
+
     scanner = Scanner(max_gap=max_gap, concurrency=concurrency, follow_depth=follow_depth, chain=chain)
+    scanner.stats.update(extra)
     scan_task = asyncio.create_task(scanner.scan_xpub(xpub))
-    return {"status": "started"}
+    return {"status": "started", **extra}
 
 @app.post("/stop_scan")
 async def stop_scan():

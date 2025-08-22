@@ -66,6 +66,8 @@ class Scanner:
         self._queue: asyncio.Queue[Tuple[str, int]] = asyncio.Queue()
         self._batch: List[Dict] = []
         self._address_times: Deque[int] = deque(maxlen=10_000)
+        self._addr_cache: List[str] = []
+        self._addr_batch_size = 100
 
         self.db = get_db()
 
@@ -137,7 +139,7 @@ class Scanner:
                 }
             )
 
-        if self.chain != "eth" and depth < self.follow_depth:
+        if self.chain != "eth" and (self.follow_depth < 0 or depth < self.follow_depth):
             for addr in next_addrs:
                 if addr not in self._seen:
                     self._seen.add(addr)
@@ -168,8 +170,12 @@ class Scanner:
             index = 0
             gap = 0
             while not self._stop and gap < self.max_gap:
-                address = ctx.AddressIndex(index).PublicAddress()
-                index += 1
+                if not self._addr_cache:
+                    self._addr_cache = [
+                        ctx.AddressIndex(i).PublicAddress() for i in range(index, index + self._addr_batch_size)
+                    ]
+                    index += self._addr_batch_size
+                address = self._addr_cache.pop(0)
 
                 txs = await self._handle_address(session, address, 0)
                 if txs:
