@@ -30,8 +30,12 @@
     <p>
       <button onclick="start()">Start</button>
       <button onclick="stop()">Stop</button>
+      <button onclick="pauseRange()">Pause</button>
+      <button onclick="resumeRange()">Resume</button>
       <button onclick="refresh()">Refresh</button>
     </p>
+    <h3>Live Output</h3>
+    <pre id="output" style="height:200px;overflow:auto;"></pre>
     <h3>/health</h3>
     <pre id="health"></pre>
     <h3>/stats</h3>
@@ -45,24 +49,74 @@
         document.getElementById('specific-fields').style.display = mode === 'specific' ? 'block' : 'none';
       }
 
+      const rangeState = {es:null, start:null, end:null, current:null, paused:false, autoScroll:true};
+
       async function start() {
         const mode = document.getElementById('mode').value;
-        const params = new URLSearchParams({mode});
         if (mode === 'range') {
-          params.append('start', document.getElementById('start_int').value);
-          params.append('end', document.getElementById('end_int').value);
-        } else if (mode === 'specific') {
+          document.getElementById('output').textContent = '';
+          rangeState.start = document.getElementById('start_int').value;
+          rangeState.end = document.getElementById('end_int').value;
+          rangeState.current = null;
+          startRangeStream(rangeState.start, rangeState.end);
+          return;
+        }
+        const params = new URLSearchParams({mode});
+        if (mode === 'specific') {
           params.append('input', document.getElementById('specific_input').value);
         }
         const r = await fetch('/start_scan', {method:'POST', body:params});
         alert(await r.text());
         refresh();
       }
+
+      function startRangeStream(start, end) {
+        if (rangeState.es) rangeState.es.close();
+        const es = new EventSource(`/range_stream?start=${start}&end=${end}`);
+        rangeState.es = es;
+        rangeState.paused = false;
+        es.onmessage = ev => {
+          const data = JSON.parse(ev.data);
+          rangeState.current = data.hex;
+          const out = document.getElementById('output');
+          out.textContent += data.hex + (data.xpub ? ` ${data.xpub}` : '') + '\n';
+          if (rangeState.autoScroll) out.scrollTop = out.scrollHeight;
+        };
+        es.onerror = () => { es.close(); };
+      }
+
+      function pauseRange() {
+        if (rangeState.es) {
+          rangeState.es.close();
+          rangeState.paused = true;
+        }
+      }
+
+      function resumeRange() {
+        if (!rangeState.paused) return;
+        rangeState.paused = false;
+        if (rangeState.current) {
+          const next = (BigInt('0x' + rangeState.current) + 1n).toString(16);
+          startRangeStream(next, rangeState.end);
+        } else {
+          startRangeStream(rangeState.start, rangeState.end);
+        }
+      }
+
       async function stop() {
+        if (rangeState.es) {
+          rangeState.es.close();
+          rangeState.es = null;
+        }
         const r = await fetch('/stop_scan', {method:'POST'});
         alert(await r.text());
         refresh();
       }
+
+      document.getElementById('output').addEventListener('scroll', function() {
+        const el = this;
+        rangeState.autoScroll = (el.scrollTop + el.clientHeight >= el.scrollHeight - 5);
+      });
       async function refresh() {
         document.getElementById('health').textContent = await (await fetch('/health')).text();
         document.getElementById('stats').textContent = JSON.stringify(await (await fetch('/stats')).json(), null, 2);

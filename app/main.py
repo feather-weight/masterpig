@@ -1,9 +1,14 @@
 from fastapi import FastAPI, Form
-from fastapi.responses import PlainTextResponse, HTMLResponse, JSONResponse
+from fastapi.responses import (
+    PlainTextResponse,
+    HTMLResponse,
+    JSONResponse,
+    StreamingResponse,
+)
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 from typing import Dict
-import asyncio, time, inspect
+import asyncio, time, inspect, json
 
 from dotenv import load_dotenv
 
@@ -34,6 +39,29 @@ async def index():
     if index_path.exists():
         return index_path.read_text(encoding="utf-8")
     return HTMLResponse("<h1>App is running</h1>", status_code=200)
+
+
+@app.get("/range_stream")
+async def range_stream(start: str, end: str):
+    """Stream generated keys within ``start``-``end`` range as SSE."""
+
+    try:
+        s = int(start, 16)
+        e = int(end, 16)
+    except ValueError:
+        return PlainTextResponse("invalid_range", status_code=400)
+    if s > e:
+        return PlainTextResponse("invalid_range", status_code=400)
+
+    async def event_gen():
+        for val in range(s, e + 1):
+            hex_key = f"{val:064x}"
+            keys = derive_extended_keys(hex_key)
+            data = {"hex": hex_key, **keys}
+            yield f"data: {json.dumps(data)}\n\n"
+            await asyncio.sleep(0)
+
+    return StreamingResponse(event_gen(), media_type="text/event-stream")
 
 @app.post("/start_scan")
 async def start_scan(
