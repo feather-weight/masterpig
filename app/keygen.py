@@ -17,7 +17,11 @@ import asyncio
 import secrets
 from typing import Dict
 
-from bip_utils import Bip32KeyNetVersions, Bip32Slip10Secp256k1
+from bip_utils import (
+    Bip32KeyNetVersions,
+    Bip32Slip10Secp256k1,
+    Secp256k1,
+)
 
 # ---------------------------------------------------------------------------
 # Network versions for different extended key prefixes
@@ -32,6 +36,22 @@ _KEY_VERSIONS: Dict[str, Bip32KeyNetVersions] = {
 }
 
 # ---------------------------------------------------------------------------
+_ORDER = Secp256k1.Order()
+
+
+def _is_valid_key(key_bytes: bytes) -> bool:
+    """Return ``True`` if ``key_bytes`` represents a valid Secp256k1 key."""
+
+    val = int.from_bytes(key_bytes, "big")
+    return 0 < val < _ORDER
+
+
+def generate_random_hex() -> str:
+    """Return a random hexadecimal key within the Secp256k1 range."""
+
+    val = secrets.randbelow(_ORDER - 1) + 1
+    return f"{val:064x}"
+
 
 def derive_extended_keys(hex_key: str) -> Dict[str, str]:
     """Derive extended private/public keys from a hexadecimal string.
@@ -46,6 +66,9 @@ def derive_extended_keys(hex_key: str) -> Dict[str, str]:
         key_bytes = bytes.fromhex(hex_key)
     except ValueError:
         # ``bytes.fromhex`` raises ``ValueError`` for invalid hex strings.
+        return {}
+
+    if not _is_valid_key(key_bytes):
         return {}
 
     results: Dict[str, str] = {}
@@ -82,14 +105,17 @@ async def main() -> None:
         hv = input("Enter 64-char hexadecimal value: ").strip()
         hex_values = [hv]
     elif mode == "range":
-        start = int(input("Start hex: "), 16)
-        end = int(input("End   hex: "), 16)
+        start = max(int(input("Start hex: "), 16), 1)
+        end = min(int(input("End   hex: "), 16), _ORDER - 1)
+        if start > end:
+            print("Invalid range; exiting")
+            return
         for val in range(start, end + 1):
             hex_values.append(f"{val:064x}")
     elif mode == "random":
         count = int(input("How many random keys? "))
         for _ in range(count):
-            hex_values.append(secrets.token_hex(32))
+            hex_values.append(generate_random_hex())
     else:
         print("Unknown mode; exiting")
         return
