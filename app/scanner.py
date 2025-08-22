@@ -12,7 +12,7 @@ from __future__ import annotations
 import asyncio
 import time
 from collections import deque
-from typing import Deque, Dict, Iterable, List, Set, Tuple
+from typing import Deque, Dict, Iterable, List, Set, Tuple, Any
 
 import aiohttp
 from bip_utils import (
@@ -130,14 +130,18 @@ class Scanner:
             self.stats["with_balance"] += 1
 
         if self.db is not None:
-            await self._store(
-                {
-                    "address": address,
-                    "tx_count": tx_count,
-                    "balance": balance,
-                    "last_seen": int(time.time()),
-                }
-            )
+            record: Dict[str, Any] = {
+                "address": address,
+                "tx_count": tx_count,
+                "balance": balance,
+                "last_seen": int(time.time()),
+            }
+            # Store raw provider data for later inspection
+            if self.chain == "eth":
+                record["provider_data"] = info
+            else:
+                record["provider_data"] = txs
+            await self._store(record)
 
         if self.chain != "eth" and (self.follow_depth < 0 or depth < self.follow_depth):
             for addr in next_addrs:

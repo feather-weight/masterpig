@@ -17,6 +17,11 @@ MONGO_URI=your-mongodb-uri
 MONGO_DB=MasterPig
 ```
 
+The application stores its findings in MongoDB. Derived extended key pairs
+(`tprv/uprv/xprv/yprv/zprv` and their public counterparts) are written to the
+`keys` collection, while per-address statistics and raw provider responses are
+batched into the `addresses` collection.
+
 Test:
 ```bash
 curl -s http://localhost:3000/health

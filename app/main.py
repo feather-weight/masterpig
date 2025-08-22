@@ -58,6 +58,20 @@ async def start_scan(
 
     scanner = Scanner(max_gap=max_gap, concurrency=concurrency, follow_depth=follow_depth, chain=chain)
     scanner.stats.update(extra)
+    # Persist key information for later analysis
+    if extra:
+        try:
+            db_get = get_db
+            db = await db_get() if inspect.iscoroutinefunction(db_get) else db_get()
+            if db is not None:
+                await asyncio.to_thread(
+                    db.keys.insert_one,
+                    {"started_at": int(time.time()), "chain": chain, **extra},
+                )
+        except Exception:
+            # Logging to DB is best-effort; ignore failures
+            pass
+
     scan_task = asyncio.create_task(scanner.scan_xpub(xpub))
     return {"status": "started", **extra}
 
