@@ -11,7 +11,8 @@ from __future__ import annotations
 
 import asyncio
 import time
-from typing import Dict, Iterable, List, Set, Tuple
+from collections import deque
+from typing import Deque, Dict, Iterable, List, Set, Tuple
 
 import aiohttp
 from bip_utils import (
@@ -59,7 +60,7 @@ class Scanner:
         self._seen: Set[str] = set()
         self._queue: asyncio.Queue[Tuple[str, int]] = asyncio.Queue()
         self._batch: List[Dict] = []
-        self._address_times: List[int] = []
+        self._address_times: Deque[int] = deque(maxlen=10_000)
 
         self.db = get_db()
 
@@ -89,7 +90,8 @@ class Scanner:
             return 0
 
         self.stats["addresses_scanned"] += 1
-        self._address_times.append(int(time.time()))
+        now = int(time.time())
+        self._address_times.append(now)
 
         tx_count = len(txs)
         if tx_count > 0:
@@ -176,7 +178,7 @@ class Scanner:
     # Expose address timestamps for stats when no DB is configured
     @property
     def address_times(self) -> List[int]:
-        return self._address_times
+        return list(self._address_times)
 
 
 __all__ = ["Scanner", "THRESHOLDS"]
